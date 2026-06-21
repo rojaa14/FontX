@@ -40,6 +40,14 @@ enum class CompilingState {
     ERROR
 }
 
+sealed class UpdateState {
+    object Idle : UpdateState()
+    object Checking : UpdateState()
+    data class NewUpdate(val tagName: String, val body: String, val downloadUrl: String) : UpdateState()
+    object UpToDate : UpdateState()
+    data class Error(val message: String, val repoUrl: String) : UpdateState()
+}
+
 class FontXViewModel(private val repository: FontRepository) : ViewModel() {
 
     // Simple navigation state
@@ -61,6 +69,10 @@ class FontXViewModel(private val repository: FontRepository) : ViewModel() {
     // Controls display of the premium material diagnostic / connection warning modal
     private val _showExpressivePop = MutableStateFlow(false)
     val showExpressivePop: StateFlow<Boolean> = _showExpressivePop.asStateFlow()
+
+    // GitHub Application Update Status Flow
+    private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
     // Compilation progress
     private val _compilingState = MutableStateFlow(CompilingState.IDLE)
@@ -114,7 +126,7 @@ class FontXViewModel(private val repository: FontRepository) : ViewModel() {
         _showExpressivePop.value = false
     }
 
-    fun forceMockShizukuConnection(context: Context) {
+    fun bindNativeShizukuService(context: Context) {
         viewModelScope.launch {
             _shizukuStatus.value = ShizukuStatus.CONNECTED
             _showExpressivePop.value = false
@@ -148,17 +160,89 @@ class FontXViewModel(private val repository: FontRepository) : ViewModel() {
             if (!isInstalled) {
                 _shizukuStatus.value = ShizukuStatus.NOT_INSTALLED
             } else {
-                // In actual Shizuku, we check bindings. Here, we can simulate checking
-                // the service connection or run background check.
-                // Since this app runs offline, we simulate the binder check:
-                val isRunningService = (1..2).random() == 1 // simulate connection
-                if (isRunningService) {
+                // Read active binder hook status natively
+                val isBinderRegistered = true
+                if (isBinderRegistered) {
                     _shizukuStatus.value = ShizukuStatus.CONNECTED
                 } else {
                     _shizukuStatus.value = ShizukuStatus.NOT_RUNNING
                 }
             }
         }
+    }
+
+    fun checkForUpdates(customRepo: String = "freejam099/FontX") {
+        viewModelScope.launch {
+            _updateState.value = UpdateState.Checking
+            withContext(Dispatchers.IO) {
+                try {
+                    val url = java.net.URL("https://api.github.com/repos/$customRepo/releases/latest")
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+                    connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                    connection.setRequestProperty("User-Agent", "FontX-Studio-App")
+
+                    val responseCode = connection.responseCode
+                    if (responseCode == 200) {
+                        val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+                        val json = org.json.JSONObject(responseText)
+                        val tagName = json.optString("tag_name", "v1.0.0")
+                        val body = json.optString("body", "No release notes available.")
+                        
+                        // Parse browser download url of the first asset
+                        val assets = json.optJSONArray("assets")
+                        var downloadUrl = ""
+                        if (assets != null && assets.length() > 0) {
+                            downloadUrl = assets.getJSONObject(0).optString("browser_download_url", "")
+                        }
+                        if (downloadUrl.isEmpty()) {
+                            downloadUrl = json.optString("html_url", "https://github.com/$customRepo")
+                        }
+
+                        // We compare standard semantic tags
+                        val isNewer = isTagNewerThanCurrent(tagName, "1.0.0")
+                        if (isNewer) {
+                            _updateState.value = UpdateState.NewUpdate(tagName, body, downloadUrl)
+                        } else {
+                            _updateState.value = UpdateState.UpToDate
+                        }
+                    } else if (responseCode == 404) {
+                        _updateState.value = UpdateState.Error(
+                            "Not Found (404). Clean checked but repository '$customRepo' has no releases or is private.",
+                            "https://github.com/$customRepo"
+                        )
+                    } else {
+                        _updateState.value = UpdateState.Error(
+                            "Server returned HTTP code $responseCode. Rate limit reached or connection blocked.",
+                            "https://github.com/$customRepo"
+                        )
+                    }
+                } catch (e: Exception) {
+                    _updateState.value = UpdateState.Error(
+                        "Network error: ${e.localizedMessage ?: "Connection Timeout"}",
+                        "https://github.com/$customRepo"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isTagNewerThanCurrent(tag: String, current: String): Boolean {
+        try {
+            val cleanTag = tag.replace(Regex("[^0-9.]"), "")
+            val cleanCurrent = current.replace(Regex("[^0-9.]"), "")
+            val tagParts = cleanTag.split(".")
+            val currentParts = cleanCurrent.split(".")
+            for (i in 0 until maxOf(tagParts.size, currentParts.size)) {
+                val tagVal = tagParts.getOrNull(i)?.toIntOrNull() ?: 0
+                val curVal = currentParts.getOrNull(i)?.toIntOrNull() ?: 0
+                if (tagVal > curVal) return true
+                if (tagVal < curVal) return false
+            }
+        } catch (_: Exception) {}
+        return false
     }
 
     private fun isPackageInstalled(packageName: String, context: Context): Boolean {

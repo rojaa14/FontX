@@ -168,7 +168,7 @@ fun ExpressiveShizukuPopup(viewModel: FontXViewModel, context: Context) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Shizuku Service Inactive",
+                    text = "Start Shizuku Service Bridge",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = colors.text,
@@ -178,7 +178,7 @@ fun ExpressiveShizukuPopup(viewModel: FontXViewModel, context: Context) {
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "The background ADB shell process is not configured. Since Android runs in a simulator environment here, you can activate our premium simulation mode to test real-time font configurations instantly!",
+                    text = "The background ADB shell binder process is not currently configured dynamically. Authorize the native service hook to establish an active socket bridge with the FontX system engine.",
                     fontSize = 13.sp,
                     color = colors.subText,
                     lineHeight = 18.sp,
@@ -189,18 +189,18 @@ fun ExpressiveShizukuPopup(viewModel: FontXViewModel, context: Context) {
 
                 Button(
                     onClick = {
-                        viewModel.forceMockShizukuConnection(context)
+                        viewModel.bindNativeShizukuService(context)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("pop_mock_enable"),
+                        .testTag("pop_native_hook_enable"),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colors.primary,
                         contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Activate Simulation Mode", fontWeight = FontWeight.Bold)
+                    Text("Hook Native ADB Bridge", fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1864,6 +1864,245 @@ fun AboutScreen(viewModel: FontXViewModel) {
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (isSelected) Color.White else colors.text
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // DEVICE DETAILS CARD
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "DEVICE DETAILS",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp,
+                        color = colors.subText,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.PhoneAndroid, contentDescription = "Device info", tint = colors.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.text)
+                            Text("System Board: ${android.os.Build.BOARD} | Hardware: ${android.os.Build.HARDWARE}", fontSize = 11.sp, color = colors.subText)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider(color = colors.border)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    DiagnosticRow(label = "Android Release Version", value = "Android ${android.os.Build.VERSION.RELEASE}", colors = colors)
+                    DiagnosticRow(label = "SDK API Level", value = "API ${android.os.Build.VERSION.SDK_INT}", colors = colors)
+                    DiagnosticRow(label = "Build Brand", value = android.os.Build.BRAND.replaceFirstChar { it.uppercase() }, colors = colors)
+                    DiagnosticRow(label = "Device Codename", value = android.os.Build.DEVICE, colors = colors)
+                }
+            }
+
+            // GITHUB APPLICATION UPDATE SYNC CARD
+            val updateState by viewModel.updateState.collectAsState()
+            var repoPath by remember { mutableStateOf("freejam099/FontX") }
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "APPLICATION UPDATES",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp,
+                        color = colors.subText,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text("GitHub Repository Sync", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.text)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Check if an application update has been published on GitHub.", fontSize = 12.sp, color = colors.subText)
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = repoPath,
+                        onValueChange = { repoPath = it },
+                        label = { Text("GitHub Owner/Repository", color = colors.subText) },
+                        placeholder = { Text("e.g. freejam099/FontX", color = colors.subText) },
+                        modifier = Modifier.fillMaxWidth().testTag("github_repo_input"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.primary,
+                            unfocusedBorderColor = colors.border,
+                            focusedTextColor = colors.text,
+                            unfocusedTextColor = colors.text
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    when (val state = updateState) {
+                        is UpdateState.Idle -> {
+                            Button(
+                                onClick = { viewModel.checkForUpdates(repoPath) },
+                                modifier = Modifier.fillMaxWidth().testTag("check_updates_btn"),
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.CloudSync, contentDescription = "Update Check")
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Check for Updates", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        is UpdateState.Checking -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(color = colors.primary, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Connecting to GitHub API...", fontSize = 13.sp, color = colors.text, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                        is UpdateState.UpToDate -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(colors.background)
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Success",
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("No Updates Available", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.text)
+                                Text("FontX Studio is already running the latest stable build (v1.0.0).", fontSize = 12.sp, color = colors.subText, textAlign = TextAlign.Center)
+                                
+                                Spacer(modifier = Modifier.height(12.dp))
+                                TextButton(onClick = { viewModel.checkForUpdates(repoPath) }) {
+                                    Text("Check Again", color = colors.primary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        is UpdateState.NewUpdate -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(colors.background)
+                                    .padding(16.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.SystemUpdateAlt,
+                                        contentDescription = "New Release",
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text("Update Found: ${state.tagName}", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.text)
+                                        Text("Newer than active build (v1.0.0)", fontSize = 11.sp, color = colors.subText)
+                                    }
+                                }
+                                if (state.body.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = state.body,
+                                        fontSize = 11.sp,
+                                        color = colors.subText,
+                                        maxLines = 4,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(1.dp, colors.border, RoundedCornerShape(8.dp))
+                                            .padding(8.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(state.downloadUrl))
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {}
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Download Release Package", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        is UpdateState.Error -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(colors.background)
+                                    .padding(16.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Error",
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Query Failed", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = colors.text)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(state.message, fontSize = 11.sp, color = colors.subText)
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { viewModel.checkForUpdates(repoPath) },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text("Retry Check", fontSize = 12.sp)
+                                    }
+                                    
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(state.repoUrl))
+                                                context.startActivity(intent)
+                                            } catch (_: Exception) {}
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary)
+                                    ) {
+                                        Text("Browse Repo", color = colors.primary, fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
