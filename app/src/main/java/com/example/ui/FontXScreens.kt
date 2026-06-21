@@ -92,19 +92,149 @@ private val AccentLavender = Color(0xFF818CF8)
 private val CoolSlateText = Color(0xFF1E293B)
 private val SoftCardBorder = Color(0x1F94A3B8)
 
+// Define dynamic theme colors helper for Clean Minimalism
+class AppColors(
+    val isDark: Boolean,
+    val background: Color,
+    val cardBackground: Color,
+    val text: Color,
+    val border: Color,
+    val topBar: Color,
+    val icon: Color,
+    val subText: Color,
+    val primary: Color,
+    val dialogBackground: Color
+)
+
+@Composable
+fun rememberAppColors(viewModel: FontXViewModel): AppColors {
+    val themeMode by viewModel.themeMode.collectAsState()
+    val isDark = when (themeMode) {
+        "Dark" -> true
+        "Light" -> false
+        else -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
+    return remember(isDark) {
+        AppColors(
+            isDark = isDark,
+            background = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC),
+            cardBackground = if (isDark) Color(0xFF1E293B) else Color.White,
+            text = if (isDark) Color(0xFFF8FAFC) else Color(0xFF1E293B),
+            border = if (isDark) Color(0x2294A3B8) else Color(0x1F94A3B8),
+            topBar = if (isDark) Color(0xFF1E293B) else Color.White,
+            icon = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+            subText = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+            primary = Color(0xFD1584FE),
+            dialogBackground = if (isDark) Color(0xFF1E293B) else Color.White
+        )
+    }
+}
+
+@Composable
+fun ExpressiveShizukuPopup(viewModel: FontXViewModel, context: Context) {
+    val colors = rememberAppColors(viewModel)
+    Dialog(onDismissRequest = { viewModel.dismissExpressivePop() }) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.dialogBackground),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .shadow(16.dp, RoundedCornerShape(24.dp))
+                .border(1.dp, colors.border, RoundedCornerShape(24.dp))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Flashy Bolt Icon in Circle
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFEF3C7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = "Alert Symbol",
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Shizuku Service Inactive",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = colors.text,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "The background ADB shell process is not configured. Since Android runs in a simulator environment here, you can activate our premium simulation mode to test real-time font configurations instantly!",
+                    fontSize = 13.sp,
+                    color = colors.subText,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.forceMockShizukuConnection(context)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("pop_mock_enable"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.primary,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Activate Simulation Mode", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(
+                    onClick = { viewModel.dismissExpressivePop() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel Diagnostics", color = colors.primary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FontXApp(viewModel: FontXViewModel) {
     val currentScreen by viewModel.currentScreen.collectAsState()
+    val showExpressivePop by viewModel.showExpressivePop.collectAsState()
     val context = LocalContext.current
+    val colors = rememberAppColors(viewModel)
 
     LaunchedEffect(Unit) {
         viewModel.checkShizuku(context)
     }
 
+    if (showExpressivePop) {
+        ExpressiveShizukuPopup(viewModel, context)
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = colors.background
     ) {
         Crossfade(targetState = currentScreen, label = "ScreenTransition") { screen ->
             when (screen) {
@@ -208,8 +338,10 @@ fun HomeScreen(viewModel: FontXViewModel) {
     val fonts by viewModel.allFonts.collectAsState()
     val shizukuState by viewModel.shizukuStatus.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val shizukuToggleActive by viewModel.shizukuToggleActive.collectAsState()
     val context = LocalContext.current
     var showImportDialog by remember { mutableStateOf(false) }
+    val colors = rememberAppColors(viewModel)
 
     // Filter fonts based on query
     val filteredFonts = remember(fonts, searchQuery) {
@@ -231,7 +363,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                     Text(
                         text = "FontX Studio",
                         fontWeight = FontWeight.ExtraBold,
-                        color = CoolSlateText,
+                        color = colors.text,
                         fontSize = 20.sp
                     )
                 },
@@ -243,7 +375,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = "About settings",
-                            tint = Color.Gray
+                            tint = colors.icon
                         )
                     }
                 },
@@ -255,20 +387,20 @@ fun HomeScreen(viewModel: FontXViewModel) {
                         Icon(
                             imageVector = Icons.Default.MenuBook,
                             contentDescription = "Shizuku Guide",
-                            tint = Color.Gray
+                            tint = colors.icon
                         )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White
+                    containerColor = colors.topBar,
+                    scrolledContainerColor = colors.topBar
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showImportDialog = true },
-                containerColor = Color(0xFF2563EB),
+                containerColor = colors.primary,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
@@ -290,7 +422,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LightSkyBackground)
+                .background(colors.background)
                 .padding(padding)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -302,12 +434,12 @@ fun HomeScreen(viewModel: FontXViewModel) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { viewModel.setSearchQuery(it) },
-                    placeholder = { Text("Search imported fonts...", color = Color.Gray) },
+                    placeholder = { Text("Search imported fonts...", color = colors.subText) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color.Gray
+                            tint = colors.icon
                         )
                     },
                     trailingIcon = {
@@ -316,7 +448,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Clear search",
-                                    tint = Color.Gray
+                                    tint = colors.icon
                                 )
                             }
                         }
@@ -324,14 +456,16 @@ fun HomeScreen(viewModel: FontXViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(2.dp, RoundedCornerShape(16.dp))
-                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .background(colors.cardBackground, RoundedCornerShape(16.dp))
                         .testTag("search_fonts_input"),
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SkyBlue,
+                        focusedBorderColor = colors.primary,
                         unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
+                        focusedContainerColor = colors.cardBackground,
+                        unfocusedContainerColor = colors.cardBackground,
+                        focusedTextColor = colors.text,
+                        unfocusedTextColor = colors.text
                     ),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
@@ -342,11 +476,11 @@ fun HomeScreen(viewModel: FontXViewModel) {
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, SoftCardBorder, RoundedCornerShape(20.dp))
+                        .border(1.dp, colors.border, RoundedCornerShape(20.dp))
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
@@ -376,7 +510,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                     },
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
-                                    color = CoolSlateText
+                                    color = colors.text
                                 )
                             }
 
@@ -384,15 +518,61 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                 text = "GUIDE & SHELL",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = SkyBlue,
+                                color = colors.primary,
                                 modifier = Modifier
                                     .clickable { viewModel.navigateTo(Screen.ShizukuGuide) }
                                     .padding(vertical = 4.dp, horizontal = 8.dp)
                             )
                         }
 
+                        // Shizuku Service Toggle switch
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colors.background)
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    imageVector = Icons.Default.Bolt,
+                                    contentDescription = "Active Toggle Status",
+                                    tint = if (shizukuToggleActive) Color(0xFF10B981) else colors.subText,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Shizuku Service Hook",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = colors.text
+                                    )
+                                    Text(
+                                        text = if (shizukuState == ShizukuStatus.CONNECTED && shizukuToggleActive) "Enabled (Active Bridge)" else "Disabled (Manual Fallback)",
+                                        fontSize = 10.sp,
+                                        color = colors.subText
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = shizukuToggleActive,
+                                onCheckedChange = { active ->
+                                    viewModel.setShizukuToggleActive(context, active)
+                                },
+                                modifier = Modifier.testTag("shizuku_active_toggle"),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = colors.cardBackground,
+                                    checkedTrackColor = colors.primary
+                                )
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        Divider(color = LightSkyBackground)
+                        Divider(color = colors.border)
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Active Font Details
@@ -400,7 +580,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                             text = "CURRENT ACTIVE FONT",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.Gray,
+                            color = colors.subText,
                             letterSpacing = 0.5.sp
                         )
 
@@ -418,7 +598,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                         text = activeFont.name,
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CoolSlateText,
+                                        color = colors.text,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -433,12 +613,12 @@ fun HomeScreen(viewModel: FontXViewModel) {
 
                                 Button(
                                     onClick = { viewModel.deactivateFont(activeFont.id) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = colors.background),
                                     shape = RoundedCornerShape(10.dp),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                     modifier = Modifier.height(32.dp)
                                 ) {
-                                    Text("Restore Def", color = CoolSlateText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Restore Def", color = colors.text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 
@@ -446,7 +626,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                             // Preview sentence in the custom font
                             Card(
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = LightSkyBackground),
+                                colors = CardDefaults.cardColors(containerColor = colors.background),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Box(
@@ -458,7 +638,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                         text = "The quick brown fox jumps over the lazy dog. 1234567890",
                                         fontFamily = activeFontFamily,
                                         fontSize = 16.sp,
-                                        color = CoolSlateText,
+                                        color = colors.text,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -473,13 +653,13 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFF1F5F9)),
+                                        .background(colors.background),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.TypeSpecimen,
                                         contentDescription = "Default System Font",
-                                        tint = Color.Gray
+                                        tint = colors.icon
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -488,12 +668,12 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                         text = "System Default Font Active",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CoolSlateText
+                                        color = colors.text
                                     )
                                     Text(
                                         text = "One UI 8+ original typography layout",
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        color = colors.subText
                                     )
                                 }
                             }
@@ -508,7 +688,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                     text = if (searchQuery.isNotEmpty()) "SEARCH RESULTS (${filteredFonts.size})" else "YOUR INVENTORY (${filteredFonts.size})",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Gray,
+                    color = colors.subText,
                     letterSpacing = 0.5.sp,
                     modifier = Modifier.padding(top = 8.dp)
                 )
@@ -518,7 +698,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                 item {
                     Card(
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 12.dp)
@@ -547,7 +727,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                 text = "Build Custom Font Pack Easily",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
-                                color = CoolSlateText
+                                color = colors.text
                             )
 
                             Spacer(modifier = Modifier.height(6.dp))
@@ -556,7 +736,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
                                 text = "Click active presets below or tap 'Import Font' in the corner to select a .ttf file from your downloads folder.",
                                 textAlign = TextAlign.Center,
                                 fontSize = 12.sp,
-                                color = Color.Gray,
+                                color = colors.subText,
                                 modifier = Modifier.padding(horizontal = 8.dp)
                             )
 
@@ -564,7 +744,7 @@ fun HomeScreen(viewModel: FontXViewModel) {
 
                             Button(
                                 onClick = { viewModel.insertPresetFontsIfEmpty(context) },
-                                colors = ButtonDefaults.buttonColors(containerColor = SkyBlue),
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                                 modifier = Modifier.testTag("load_presets_btn"),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -596,14 +776,15 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
     val fontStyle = rememberCustomFont(font.filePath, font.styleCategory)
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val colors = rememberAppColors(viewModel)
 
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, SoftCardBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(18.dp))
             .clickable { viewModel.navigateTo(Screen.Detail(font.id)) }
             .testTag("font_card_${font.id}")
     ) {
@@ -618,13 +799,13 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(LightSkyBackground),
+                            .background(colors.background),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = font.styleCategory.take(1),
                             fontWeight = FontWeight.Bold,
-                            color = SkyBlue,
+                            color = colors.primary,
                             fontSize = 14.sp
                         )
                     }
@@ -636,7 +817,7 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
                             text = font.name,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = CoolSlateText,
+                            color = colors.text,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -644,19 +825,19 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
                             Text(
                                 text = font.styleCategory,
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = colors.subText
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "•",
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = colors.subText
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = font.fileSize,
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = colors.subText
                             )
                         }
                     }
@@ -690,7 +871,7 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete font",
-                            tint = Color.Gray,
+                            tint = colors.icon,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -698,7 +879,7 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-            Divider(color = LightSkyBackground)
+            Divider(color = colors.border)
             Spacer(modifier = Modifier.height(14.dp))
 
             // Specimen Rendering in the custom font
@@ -706,7 +887,7 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
                 text = "The quick brown fox jumps over the lazy dog.",
                 fontFamily = fontStyle,
                 fontSize = 18.sp,
-                color = CoolSlateText,
+                color = colors.text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -716,8 +897,8 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Font Package?") },
-            text = { Text("Are you sure you want to completely remove \"${font.name}\" from your offline storage inventory?") },
+            title = { Text("Delete Font Package?", color = colors.text) },
+            text = { Text("Are you sure you want to completely remove \"${font.name}\" from your offline storage inventory?", color = colors.subText) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -732,11 +913,11 @@ fun FontItemCard(font: FontEntity, viewModel: FontXViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = colors.primary)
                 }
             },
             shape = RoundedCornerShape(16.dp),
-            containerColor = Color.White
+            containerColor = colors.dialogBackground
         )
     }
 }
@@ -982,13 +1163,14 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
     val compilingLog by viewModel.compilingLog.collectAsState()
 
     val context = LocalContext.current
+    val colors = rememberAppColors(viewModel)
     var sandboxText by remember { mutableStateOf("FontX Studio: Perfect typography renders here offline.") }
     var previewFontSize by remember { mutableStateOf(22f) }
     val clipboardManager = LocalClipboardManager.current
 
     if (font == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = SkyBlue)
+            CircularProgressIndicator(color = colors.primary)
         }
         return
     }
@@ -1003,7 +1185,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                     Text(
                         currentFont.name,
                         fontWeight = FontWeight.Bold,
-                        color = CoolSlateText,
+                        color = colors.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1015,18 +1197,19 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to home dashboard"
+                            contentDescription = "Back to home dashboard",
+                            tint = colors.icon
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.topBar)
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LightSkyBackground)
+                .background(colors.background)
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
@@ -1035,17 +1218,18 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
             // Interactive Sandbox Card
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(1.dp, RoundedCornerShape(20.dp))
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "LIVE RENDER SANDBOX",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color.Gray,
+                        color = colors.subText,
                         letterSpacing = 0.5.sp
                     )
 
@@ -1056,12 +1240,14 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                         onValueChange = { sandboxText = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, SoftCardBorder, RoundedCornerShape(12.dp))
+                            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
                             .testTag("sandbox_text_field"),
                         shape = RoundedCornerShape(12.dp),
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = LightSkyBackground,
-                            unfocusedContainerColor = LightSkyBackground,
+                            focusedContainerColor = colors.background,
+                            unfocusedContainerColor = colors.background,
+                            focusedTextColor = colors.text,
+                            unfocusedTextColor = colors.text,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
                         ),
@@ -1074,8 +1260,8 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, SoftCardBorder, RoundedCornerShape(12.dp))
-                            .background(LightSkyBackground, RoundedCornerShape(12.dp))
+                            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                            .background(colors.background, RoundedCornerShape(12.dp))
                             .padding(16.dp)
                             .heightIn(min = 100.dp),
                         contentAlignment = Alignment.Center
@@ -1084,7 +1270,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                             text = sandboxText.ifEmpty { "Type something..." },
                             fontFamily = customFontFamily,
                             fontSize = previewFontSize.sp,
-                            color = CoolSlateText,
+                            color = colors.text,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1100,11 +1286,11 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                         Icon(
                             imageVector = Icons.Default.TextFields,
                             contentDescription = "Sizing slider",
-                            tint = Color.Gray,
+                            tint = colors.icon,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Size: ${previewFontSize.toInt()}sp", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Text("Size: ${previewFontSize.toInt()}sp", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.subText)
                         Spacer(modifier = Modifier.width(8.dp))
                         Slider(
                             value = previewFontSize,
@@ -1121,17 +1307,18 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
             // APK Compiling Card (One UI 8+ Bridge)
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(1.dp, RoundedCornerShape(20.dp))
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "ONE UI 8+ COMPILATION HUB",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color.Gray,
+                        color = colors.subText,
                         letterSpacing = 0.5.sp
                     )
 
@@ -1140,7 +1327,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                     Text(
                         text = "Build standard package overlays for secure system deployment. Zero network data required. Overwrites file configuration fully.",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = colors.subText
                     )
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -1148,7 +1335,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                     if (compilingState == CompilingState.IDLE) {
                         Button(
                             onClick = { viewModel.runApkCompiler(currentFont.name) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SkyBlue),
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1175,14 +1362,14 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                                     },
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (compilingState == CompilingState.SUCCESS) Color(0xFF10B981) else SkyBlue
+                                    color = if (compilingState == CompilingState.SUCCESS) Color(0xFF10B981) else colors.primary
                                 )
 
                                 Text(
                                     text = "${(compilingProgress * 100).toInt()}%",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = SkyBlue
+                                    color = colors.primary
                                 )
                             }
 
@@ -1194,8 +1381,8 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(4.dp))
                                     .testTag("compiler_progress_bar"),
-                                color = if (compilingState == CompilingState.SUCCESS) Color(0xFF10B981) else SkyBlue,
-                                trackColor = LightSkyBackground
+                                color = if (compilingState == CompilingState.SUCCESS) Color(0xFF10B981) else colors.primary,
+                                trackColor = colors.background
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -1215,7 +1402,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                                         shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier
                                             .weight(1f)
-                                            .testTag("apply_shizuku_btn")
+                                              .testTag("apply_shizuku_btn")
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(imageVector = Icons.Default.FlashOn, contentDescription = "Flash", tint = Color.White)
@@ -1228,7 +1415,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                                         onClick = {
                                             Toast.makeText(context, "APK overlay written to internal downloads to install.", Toast.LENGTH_LONG).show()
                                         },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                                         shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier
                                             .weight(1f)
@@ -1248,8 +1435,8 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(CoolSlateText, RoundedCornerShape(10.dp))
-                                    .border(1.dp, Color.Black, RoundedCornerShape(10.dp))
+                                    .background(colors.background, RoundedCornerShape(10.dp))
+                                    .border(1.dp, colors.border, RoundedCornerShape(10.dp))
                                     .padding(12.dp)
                                     .heightIn(max = 100.dp)
                             ) {
@@ -1257,7 +1444,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                                     text = compilingLog,
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 11.sp,
-                                    color = Color(0xFFF1F5F9),
+                                    color = colors.text,
                                     modifier = Modifier.verticalScroll(rememberScrollState())
                                 )
                             }
@@ -1269,17 +1456,18 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
             // Manual Installation ADB Commands (Highly informative!)
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(1.dp, RoundedCornerShape(20.dp))
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "MANUAL WIRELESS DEBUG / ADB SHELL ACTIONS",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color.Gray,
+                        color = colors.subText,
                         letterSpacing = 0.5.sp
                     )
 
@@ -1288,7 +1476,7 @@ fun DetailScreen(viewModel: FontXViewModel, fontId: Int) {
                     Text(
                         text = "If you don't use Shizuku, copy and paste these shell command strings in LADB or your laptop terminal while connected to wireless debugging:",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = colors.subText
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -1568,26 +1756,27 @@ fun GuideStep(stepNumber: String, title: String, desc: String) {
 @Composable
 fun AboutScreen(viewModel: FontXViewModel) {
     val context = LocalContext.current
+    val colors = rememberAppColors(viewModel)
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About FontX Studio", fontWeight = FontWeight.Bold) },
+                title = { Text("About FontX Studio", fontWeight = FontWeight.Bold, color = colors.text) },
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.navigateTo(Screen.Home) },
                         modifier = Modifier.testTag("about_back")
                     ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back back home")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back back home", tint = colors.icon)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.topBar)
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LightSkyBackground)
+                .background(colors.background)
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
@@ -1618,52 +1807,64 @@ fun AboutScreen(viewModel: FontXViewModel) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            Text("FontX Studio", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = CoolSlateText)
-            Text("Version 1.0.0 Stable Build", fontSize = 12.sp, color = Color.Gray)
+            Text("FontX Studio", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = colors.text)
+            Text("Version 1.0.0 Stable Build", fontSize = 12.sp, color = colors.subText)
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // APPEARANCE THEME SELECTOR CARD
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Guiding Core Values", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color.Gray)
+                    Text(
+                        text = "APPEARANCE SETTINGS",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp,
+                        color = colors.subText,
+                        letterSpacing = 0.5.sp
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.NetworkLocked, contentDescription = "offline", tint = SkyBlue)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("100% Offline-First", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CoolSlateText)
-                            Text("No background servers, completely private.", fontSize = 11.sp, color = Color.Gray)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider(color = LightSkyBackground)
+                    Text("Interface Theme Mode", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.text)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Choose how FontX Studio renders across your system preferences.", fontSize = 12.sp, color = colors.subText)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.VerifiedUser, contentDescription = "secure", tint = SkyBlue)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Zero Storage Permissions", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CoolSlateText)
-                            Text("We copy only chosen fonts inside app sandbox.", fontSize = 11.sp, color = Color.Gray)
-                        }
-                    }
+                    val activeThemeMode by viewModel.themeMode.collectAsState()
+                    val modes = listOf("System", "Light", "Dark")
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider(color = LightSkyBackground)
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.HighQuality, contentDescription = "One UI", tint = SkyBlue)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Designed for One UI", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CoolSlateText)
-                            Text("Guarantees compatibility with Shizuku.", fontSize = 11.sp, color = Color.Gray)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.background)
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        modes.forEach { mode ->
+                            val isSelected = activeThemeMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) colors.primary else Color.Transparent)
+                                    .clickable { viewModel.setThemeMode(context, mode) }
+                                    .padding(vertical = 10.dp)
+                                    .testTag("theme_btn_${mode.lowercase()}"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = mode,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else colors.text
+                                )
+                            }
                         }
                     }
                 }
@@ -1671,17 +1872,68 @@ fun AboutScreen(viewModel: FontXViewModel) {
 
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Local Diagnostics Status", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color.Gray)
+                    Text("Guiding Core Values", fontWeight = FontWeight.Black, fontSize = 12.sp, color = colors.subText)
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    DiagnosticRow(label = "Sandbox Files", value = "${File(context.filesDir, "fonts").listFiles()?.size ?: 0} custom fonts")
-                    DiagnosticRow(label = "Internal Database", value = "fontx_database (SQLite)")
-                    DiagnosticRow(label = "Application ID", value = "com.aistudio.fontx.qvrzkp")
-                    DiagnosticRow(label = "Operating System", value = "Android 10+ (One UI 8.x Compatible)")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.NetworkLocked, contentDescription = "offline", tint = colors.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("100% Offline-First", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.text)
+                            Text("No background servers, completely private.", fontSize = 11.sp, color = colors.subText)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider(color = colors.border)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.VerifiedUser, contentDescription = "secure", tint = colors.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Zero Storage Permissions", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.text)
+                            Text("We copy only chosen fonts inside app sandbox.", fontSize = 11.sp, color = colors.subText)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider(color = colors.border)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.HighQuality, contentDescription = "One UI", tint = colors.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Designed for One UI", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.text)
+                            Text("Guarantees compatibility with Shizuku.", fontSize = 11.sp, color = colors.subText)
+                        }
+                    }
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.border, RoundedCornerShape(20.dp))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Local Diagnostics Status", fontWeight = FontWeight.Black, fontSize = 12.sp, color = colors.subText)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val listSize = remember { File(context.filesDir, "fonts").listFiles()?.size ?: 0 }
+                    DiagnosticRow(label = "Sandbox Files", value = "$listSize custom fonts", colors = colors)
+                    DiagnosticRow(label = "Internal Database", value = "fontx_database (SQLite)", colors = colors)
+                    DiagnosticRow(label = "Application ID", value = "com.aistudio.fontx.qvrzkp", colors = colors)
+                    DiagnosticRow(label = "Operating System", value = "Android 10+ (One UI 8.x Compatible)", colors = colors)
                 }
             }
         }
@@ -1689,14 +1941,14 @@ fun AboutScreen(viewModel: FontXViewModel) {
 }
 
 @Composable
-fun DiagnosticRow(label: String, value: String) {
+fun DiagnosticRow(label: String, value: String, colors: AppColors) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, fontSize = 12.sp, color = Color.Gray)
-        Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CoolSlateText)
+        Text(text = label, fontSize = 12.sp, color = colors.subText)
+        Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.text)
     }
 }

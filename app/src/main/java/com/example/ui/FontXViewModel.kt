@@ -50,6 +50,18 @@ class FontXViewModel(private val repository: FontRepository) : ViewModel() {
     private val _shizukuStatus = MutableStateFlow(ShizukuStatus.NOT_INSTALLED)
     val shizukuStatus: StateFlow<ShizukuStatus> = _shizukuStatus.asStateFlow()
 
+    // App theme selection ("System", "Light", "Dark")
+    private val _themeMode = MutableStateFlow("System")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    // Shizuku system integration toggle
+    private val _shizukuToggleActive = MutableStateFlow(false)
+    val shizukuToggleActive: StateFlow<Boolean> = _shizukuToggleActive.asStateFlow()
+
+    // Controls display of the premium material diagnostic / connection warning modal
+    private val _showExpressivePop = MutableStateFlow(false)
+    val showExpressivePop: StateFlow<Boolean> = _showExpressivePop.asStateFlow()
+
     // Compilation progress
     private val _compilingState = MutableStateFlow(CompilingState.IDLE)
     val compilingState: StateFlow<CompilingState> = _compilingState.asStateFlow()
@@ -75,6 +87,40 @@ class FontXViewModel(private val repository: FontRepository) : ViewModel() {
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    fun loadPreferences(context: Context) {
+        val prefs = context.getSharedPreferences("fontx_prefs", Context.MODE_PRIVATE)
+        _themeMode.value = prefs.getString("theme_mode", "System") ?: "System"
+        _shizukuToggleActive.value = prefs.getBoolean("shizuku_toggle", false)
+    }
+
+    fun setThemeMode(context: Context, mode: String) {
+        _themeMode.value = mode
+        val prefs = context.getSharedPreferences("fontx_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("theme_mode", mode).apply()
+    }
+
+    fun setShizukuToggleActive(context: Context, active: Boolean) {
+        if (active && _shizukuStatus.value != ShizukuStatus.CONNECTED) {
+            _showExpressivePop.value = true
+        } else {
+            _shizukuToggleActive.value = active
+            val prefs = context.getSharedPreferences("fontx_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("shizuku_toggle", active).apply()
+        }
+    }
+
+    fun dismissExpressivePop() {
+        _showExpressivePop.value = false
+    }
+
+    fun forceMockShizukuConnection(context: Context) {
+        viewModelScope.launch {
+            _shizukuStatus.value = ShizukuStatus.CONNECTED
+            _showExpressivePop.value = false
+            setShizukuToggleActive(context, true)
+        }
+    }
 
     init {
         // Automatically transition from Splash to Home after a short delay

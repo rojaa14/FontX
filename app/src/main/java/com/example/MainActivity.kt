@@ -4,6 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
 import com.example.data.AppDatabase
 import com.example.data.FontRepository
@@ -29,10 +32,17 @@ class MainActivity : ComponentActivity() {
 
         // Load Preset Fonts if Database is Empty and Trigger Status Checks
         viewModel.insertPresetFontsIfEmpty(applicationContext)
+        viewModel.loadPreferences(applicationContext)
         viewModel.checkShizuku(applicationContext)
 
         setContent {
-            MyApplicationTheme {
+            val themeMode by viewModel.themeMode.collectAsState()
+            val darkTheme = when (themeMode) {
+                "Dark" -> true
+                "Light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            MyApplicationTheme(darkTheme = darkTheme) {
                 FontXApp(viewModel)
             }
         }
